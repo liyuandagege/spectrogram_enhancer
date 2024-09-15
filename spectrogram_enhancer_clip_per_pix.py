@@ -1,93 +1,221 @@
 import torch
+import torch.nn.functional as F
+from einops import rearrange
+from torch.autograd import grad as torch_grad
+from transformers import Wav2Vec2Model, Wav2Vec2Processor
+from torchaudio import transforms
+from nemo.collections.tts.parts.utils.helpers import mask_sequence_tensor
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Union, List
-from nemo.collections.tts.modules.shared import MLP
+from torchvision import models
 
-import math
-from functools import partial
-from math import log2
-from typing import List
-from einops import rearrange
-from kornia.filters import filter2d
-from nemo.collections.tts.parts.utils.helpers import mask_sequence_tensor
-from nemo.collections.tts.losses.spectrogram_enhancer_losses import PercepContxLoss
-from nemo.collections.tts.modules.clip import CLIP
-from typing import Union, Any, Optional
+from nemo.collections.tts.losses.context_loss import CSFlow
+def spherical_distance(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    x = F.normalize(x, dim=-1)
+    y = F.normalize(y, dim=-1)
+    return (x * y).sum(-1).arccos().pow(2)
 
-def is_list_of_strings(arr: Any) -> bool:
-    if arr is None: return False
-    is_list = isinstance(arr, list) or isinstance(arr, np.ndarray) or  isinstance(arr, tuple)
-    entry_is_str = isinstance(arr[0], str)
-    return is_list and entry_is_str
 
-class PixelShuffleUpsampleBlock(nn.Module):
-    def __init__(self, in_channels, upscale_factor=2):
+class TimeFrequencyLoss(torch.nn.Module):
+    """
+    Time-Frequency Loss to ensure the generated spectrogram is similar to the real spectrogram in both time and frequency domains.
+    """
+
+    def __init__(self, weight: float = 5.0):
         super().__init__()
-        self.conv = nn.Conv2d(in_channels, in_channels * (upscale_factor ** 2), kernel_size=3, padding=1)
-        self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
+        self.weight = weight
 
-    def forward(self, x):
-        x = self.conv(x)
-        return self.pixel_shuffle(x)
-        
-class ExtendedMappingNetwork(nn.Module):
-    def __init__(
-        self,
-        z_dim: int,
-        conditional: bool = False,
-        num_layers: int = 2,
-        activation: str = 'lrelu',
-        lr_multiplier: float = 0.01,
-        x_avg_beta: float = 0.995,
-    ):
+    def __call__(self, enhanced, target):
+        return self.weight * F.mse_loss(enhanced, target)
+
+class PerceptualLoss(torch.nn.Module):
+    """
+    Perceptual Loss to capture higher-level context information using a pre-trained network.
+    """
+
+    def __init__(self, feature_extractor, layers, weight: float = 1.0):
         super().__init__()
-        self.z_dim = z_dim
-        self.x_avg_beta = x_avg_beta
-        self.num_ws = None
-        self.training = True
-        self.mlp = MLP([z_dim]*(num_layers+1), activation=activation,
-                       lr_multiplier=lr_multiplier, linear_out=True)
+        self.feature_extractor = feature_extractor
+        self.layers = layers
+        self.weight = weight
 
-        if conditional:
-            self.clip = CLIP()
-            del self.clip.model.visual # only using the text encoder
-            self.c_dim = self.clip.txt_dim
-        else:
-            self.c_dim = 0
+    def __call__(self, enhanced, target):
+        enhanced_features = self._extract_features(enhanced)
+        target_features = self._extract_features(target)
+        loss = 0
+        for ef, tf in zip(enhanced_features, target_features):
+            loss += F.l1_loss(ef, tf)
+        return self.weight * loss
 
-        self.w_dim = self.c_dim + self.z_dim
-        self.fusion_layer = nn.Linear(self.w_dim, self.z_dim)
-        self.register_buffer('x_avg', torch.zeros([self.z_dim]))
+    def _extract_features(self, x):
+        features = []
+        for name, layer in self.feature_extractor._modules.items():
+            x = layer(x)
+            if name in self.layers:
+                features.append(x)
+        return features
 
-    def forward(
-        self,
-        z: torch.Tensor,
-        c: Union[None, torch.Tensor, List[str]],
-        truncation_psi: float = 0.5,
-    ) -> torch.Tensor:
-        assert z.shape[1] == self.z_dim
+class ContextualLoss(nn.Module):
+    """
+    Contextual Loss to ensure the generated spectrogram captures the context of the real spectrogram.
+    """
 
-        # Forward pass
-        x = self.mlp(F.normalize(z, dim=1))
-        # Check if x contains inf or NaN
-        self.x_avg = self.x_avg.to(x.dtype) 
-        # Update moving average
+    def __init__(self, weight: float = 1.0, h: float = 0.1):
+        super(ContextualLoss, self).__init__()
+        self.weight = weight
+        self.h = h  # Bandwidth parameter
+
+    def forward(self, enhanced, target):
+        # Assuming enhanced and target are [B, C, H, W]
+        target = target.unsqueeze(1)
+        # print('shape of enhanced, target', enhanced.shape, target.shape)
+        assert enhanced.size() == target.size(), "Input and target must have the same size"
         
-        if self.x_avg_beta is not None and self.training:
-            self.x_avg.copy_(x.detach().mean(0).lerp(self.x_avg, self.x_avg_beta))
+        # Normalize the enhanced and target features
+        enhanced_norm = F.normalize(enhanced, p=2, dim=1)
+        target_norm = F.normalize(target, p=2, dim=1)
 
-        # Apply truncation
-        if truncation_psi != 1:
-            assert self.x_avg_beta is not None
-            x = self.x_avg.lerp(x, truncation_psi)  # Lower truncation_psi will make generated samples closer to x_avg, reducing diversity but improving sample quality.
-        # Construct latent vector
-        if self.c_dim > 0:
-            assert c is not None
-            c = self.clip.encode_text(c) if is_list_of_strings(c) else c
-            w = torch.cat([x, c], 1)
-            w = self.fusion_layer(w)
+        # Compute cosine similarity
+        cosine_sim = torch.einsum('bchw,bchw->bhw', [enhanced_norm, target_norm])
+        
+        # Compute contextual loss
+        d = (1 - cosine_sim) / 2
+        d_min = d.min(dim=-1, keepdim=True)[0]
+        d_tilde = d / (d_min + 1e-5)
+        w = torch.exp((1 - d_tilde) / self.h)
+        contextual_loss = -torch.log(w.mean(dim=-1) + 1e-5).mean()
+
+        return self.weight * contextual_loss
+
+class SpectrogramPerceptualLoss(nn.Module):
+    def __init__(self, loss_scale=1.0, layers_weights=None):
+        super(SpectrogramPerceptualLoss, self).__init__()
+        self.loss_scale = loss_scale
+        vgg = models.vgg19(pretrained=True).features
+        self.vgg_layers = nn.ModuleList([vgg[i] for i in range(len(vgg))])
+        if layers_weights is None:
+            self.layers_weights = [0.0625, 0.125, 0.25, 0.5, 1.0]
+            # Example weights, adjust to fit the task needs
+            # self.layers_weights = [0.0625, 0.125, 0.25, 0.5, 1.0]
+            # self.layers_weights = [0.1, 0.2, 0.3, 0.2, 0.2]
+            # self.layers_weights = [0.1, 0.125, 0.25, 0.5, 1.0]
         else:
-            w = x
-        # Broadcast latent vector
-        return w
+            self.layers_weights = layers_weights
+    def forward(self, spect_predicted, spect_tgt):
+        # Ensure the input spectrogram has the correct range and shape
+        spect_predicted = spect_predicted.repeat(1, 3, 1, 1)  # (B, C, H, W)
+        spect_tgt = spect_tgt.unsqueeze(1).repeat(1, 3, 1, 1)  # (B, C, H, W)
+        # Normalize the spectrogram to match the VGG19 input range
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(spect_predicted.device)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(spect_predicted.device)
+        spect_predicted = (spect_predicted - mean) / std
+        spect_tgt = (spect_tgt - mean) / std
+        loss = 0.0
+        for i, weight in enumerate(self.layers_weights):
+            with torch.no_grad():
+                # print("spect_tgt before", spect_tgt.shape)
+
+                spect_tgt = self.vgg_layers[i](spect_tgt)
+                # print("spect_tgt after", spect_tgt.shape)
+                # spect_tgt = self.adjust_channels[i](spect_tgt)  # Adjust channel count
+            spect_predicted = self.vgg_layers[i](spect_predicted)
+            # spect_predicted = self.adjust_channels[i](spect_predicted)  # Adjust channel count
+            loss += weight * F.l1_loss(spect_predicted, spect_tgt)
+
+        return loss * self.loss_scale
+
+class SpeechLoss(nn.Module):
+    def __init__(self, kernel_size, stride):
+        super(SpeechLoss, self).__init__()
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.mse_loss = nn.L1Loss()  # nn.MSELoss()
+
+    def forward(self, enhanced_audio, target_audio):
+        # Compute time dimension padding size
+        time_padding = self.kernel_size - (time % self.kernel_size)
+        if time_padding == self.kernel_size:
+            time_padding = 0
+
+        # Compute frequency dimension padding size
+        frequency_padding = self.kernel_size - (frequency % self.kernel_size)
+        if frequency_padding == self.kernel_size:
+            frequency_padding = 0
+
+        # Pad the enhanced and target audio
+        enhanced_padded = F.pad(enhanced_audio, (0, time_padding, 0, frequency_padding))
+        target_padded = F.pad(target_audio, (0, time_padding, 0, frequency_padding))
+
+        # Split the padded enhanced and target audio into small patches
+        unfolded_enhanced = enhanced_padded.unfold(2, self.kernel_size, self.stride).unfold(3, self.kernel_size, self.stride)
+        unfolded_target = target_padded.unfold(2, self.kernel_size, self.stride).unfold(3, self.kernel_size, self.stride)
+
+        # Compute correlation between patches
+        correlation = self.compute_correlation(unfolded_enhanced)
+        correlation_target = self.compute_correlation(unfolded_target)
+
+        # Compute correlation loss
+        correlation_loss = self.mse_loss(correlation, correlation_target)
+
+        # Final loss
+        loss = correlation_loss * 0.01
+        return loss
+
+    def compute_correlation(self, x):
+        batch, channels, time_patchnumber, fre_patchnumber, patchheigth, patchwidth = x.shape
+        correlation_x = x.reshape(batch, channels, time_patchnumber, fre_patchnumber, -1)
+        correlation_x_1 = x.reshape(batch, channels, -1, patchwidth * patchheigth)
+        correlation_x_2 = x.reshape(batch, channels, patchwidth * patchheigth, -1)
+        correlation_metrix = correlation_x_1.matmul(correlation_x_2)
+        return correlation_metrix
+
+
+def contextual_loss(enhanced, target, h=0.5):
+    # Compute cosine similarity
+    cosine_sim = torch.einsum('bchw,bchw->bhw', [enhanced, target])
+    
+    # Compute contextual loss
+    d = (1 - cosine_sim) / 2
+    d_min = d.min(dim=-1, keepdim=True)[0]
+    d_tilde = d / (d_min + 1e-5)
+    w = torch.exp((1 - d_tilde) / h)
+
+    # Calculate final loss
+    contextual_loss = -torch.log(w.mean(dim=-1) + 1e-5).mean()
+
+    return contextual_loss
+
+class PercepContxLoss(nn.Module):
+    def __init__(self, loss_scale=1.0, layers_weights=None):
+        super(PercepContxLoss, self).__init__()
+        self.loss_scale = loss_scale
+        vgg = models.vgg19(pretrained=True).features
+        self.vgg_layers = nn.ModuleList([vgg[i] for i in range(len(vgg))])
+        if layers_weights is None:
+            self.layers_weights = [0.0625, 0.125, 0.25, 0.5, 1.0]
+            # Example weights, adjust to fit the task needs
+        else:
+            self.layers_weights = layers_weights
+    def forward(self, spect_predicted, spect_tgt):
+        # Ensure the input spectrogram has the correct range and shape
+        spect_predicted = spect_predicted.repeat(1, 3, 1, 1)  # (B, C, H, W)
+        spect_tgt = spect_tgt.unsqueeze(1).repeat(1, 3, 1, 1)  # (B, C, H, W)
+        # Normalize the spectrogram to match the VGG19 input range
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(spect_predicted.device)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(spect_predicted.device)
+        spect_predicted = (spect_predicted - mean) / std
+        spect_tgt = (spect_tgt - mean) / std
+        loss = 0.0
+        for i, weight in enumerate(self.layers_weights):
+            with torch.no_grad():
+                spect_tgt = self.vgg_layers[i](spect_tgt)
+            spect_predicted = self.vgg_layers[i](spect_predicted)
+            # print('shape of spect_predicted', spect_predicted.shape, spect_tgt.shape)
+            f1 = F.l1_loss(spect_predicted, spect_tgt)
+            con = contextual_loss(spect_predicted, spect_tgt)
+            # print('value of distance', con, f1)
+            loss_for = weight * (con + f1)
+            loss = loss + loss_for
+        return loss * self.loss_scale
