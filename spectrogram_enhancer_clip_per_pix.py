@@ -68,20 +68,20 @@ class ExtendedMappingNetwork(nn.Module):
     ) -> torch.Tensor:
         assert z.shape[1] == self.z_dim
 
-        # 前向传播
+        # Forward pass
         x = self.mlp(F.normalize(z, dim=1))
-                # 检查 x 是否包含 inf 或 NaN
+        # Check if x contains inf or NaN
         self.x_avg = self.x_avg.to(x.dtype) 
-        # 更新移动平均值
+        # Update moving average
         
         if self.x_avg_beta is not None and self.training:
             self.x_avg.copy_(x.detach().mean(0).lerp(self.x_avg, self.x_avg_beta))
 
-        # 应用截断
+        # Apply truncation
         if truncation_psi != 1:
             assert self.x_avg_beta is not None
-            x = self.x_avg.lerp(x, truncation_psi)  # 较低的 truncation_psi 值会使生成样本更加接近 x_avg，从而减少多样性但提高样本质量。
-        # 构建潜在向量
+            x = self.x_avg.lerp(x, truncation_psi)  # Lower truncation_psi will make generated samples closer to x_avg, reducing diversity but improving sample quality.
+        # Construct latent vector
         if self.c_dim > 0:
             assert c is not None
             c = self.clip.encode_text(c) if is_list_of_strings(c) else c
@@ -89,6 +89,5 @@ class ExtendedMappingNetwork(nn.Module):
             w = self.fusion_layer(w)
         else:
             w = x
-        # 广播潜在向量
+        # Broadcast latent vector
         return w
-
