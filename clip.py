@@ -30,39 +30,34 @@ class CLIP(nn.Module):
         return image_features
 
     def encode_text(self, texts: List[str]) -> torch.Tensor:
-        max_length = 77  # CLIP 模型的最大长度
+        max_length = 77  # Maximum length for CLIP model
         text_embeddings = []
 
         for text in texts:
-            # 切分文本成长度为 max_length 的段落
-            # print('leng of text', len(text))
+            # Split the text into segments of max_length
             text = text.rstrip()
-            # print('rstrip()', len(text))
 
             segments = [text[i:i + max_length] for i in range(0, len(text), max_length)]
             segment_embeddings = []
 
             for segment in segments:
-                # 对每个段落进行token化处理
+                # Tokenize each segment
                 tokenized_segment = open_clip.tokenize([segment]).to(self.device)
-                # print(f"Tokenized segment shape: {tokenized_segment.shape}")
 
-                # 对每个tokenized段落进行编码
+                # Encode each tokenized segment
                 with torch.no_grad():
                     segment_embedding = self.model.encode_text(tokenized_segment)
                 segment_embeddings.append(segment_embedding)
 
-            # 对一个文本的所有段落嵌入向量进行聚合
-            text_embedding = torch.mean(torch.stack(segment_embeddings), dim=0)  # 求均值，得到 [1, embedding_dim]
+            # Aggregate the embeddings of all segments of the text
+            text_embedding = torch.mean(torch.stack(segment_embeddings), dim=0)  # Take the mean, resulting in [1, embedding_dim]
             text_embeddings.append(text_embedding)
 
-        # 聚合所有文本的嵌入向量
+        # Aggregate embeddings of all texts
         text_embeddings = torch.cat(text_embeddings, dim=0)
-        # print("Aggregated text embeddings shape:", text_embeddings.shape)
 
-        # 对嵌入向量进行归一化
+        # Normalize the embeddings
         text_features = F.normalize(text_embeddings, dim=-1)
-        # print("Normalized text features shape:", text_features.shape)
 
         return text_features
 
