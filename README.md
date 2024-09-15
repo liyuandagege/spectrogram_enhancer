@@ -48,7 +48,7 @@ Feel free to explore these files to understand the implementation details of the
 
 Below is the architecture diagram of the proposed model:
 
-![Model Architecture](https://github.com/liyuandagege/spectrogram_enhancer/blob/main/model_perceptual.png)
+![Model Architecture](https://github.com/liyuandagege/spectrogram_enhancer/model_perceptual.pdf)
 
 *Note: The original architecture diagram is in `model_perceptual.pdf`. Please convert it to an image format (e.g., PNG or JPG) and upload it to the repository to ensure proper display.*
 
