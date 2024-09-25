@@ -90,6 +90,7 @@ If you have any questions or suggestions, feel free to reach out by [opening an 
 ## Acknowledgements
 
 Special thanks to all researchers and developers who contributed to this project. Your support and collaboration are greatly appreciated.
+We would also like to express our gratitude to the NVlabs team for their work on [StyleGAN2](https://github.com/NVlabs/stylegan2), which has greatly inspired and supported this project.
 
 ## Citation
 
