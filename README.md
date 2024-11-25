@@ -99,7 +99,7 @@ If you use this project in your research, please cite it as follows:
 ```bibtex
 @article{li2024zero,
   title={Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss},
-  author={Li, Yuan},
+  author={},
   journal={Under Review},
   year={2024}
 }
