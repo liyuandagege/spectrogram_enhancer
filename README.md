@@ -1,6 +1,6 @@
 # Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss
 
-Welcome to the **Zero-Shot Speech Recognition through Spectrogram Enhancement** GitHub repository. This project accompanies the paper titled *"Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss"* by **Yuan Li**, which is currently under review. A portion of the key code has been uploaded to this repository, with the complete code to be released upon the publication of the paper.
+Welcome to the **Zero-Shot Speech Recognition through Spectrogram Enhancement** GitHub repository. This project accompanies the paper titled *"Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss"* by ****, which is currently under review. A portion of the key code has been uploaded to this repository, with the complete code to be released upon the publication of the paper.
 
 ## Table of Contents
 
@@ -48,7 +48,7 @@ Feel free to explore these files to understand the implementation details of the
 
 Below is the architecture diagram of the proposed model:
 
-![Model Architecture]([(https://github.com/liyuandagege/spectrogram_enhancer/blob/main/model_perceptual.png)]
+![Model Architecture]([(https://github.com/dagege/spectrogram_enhancer/blob/main/model_perceptual.png)]
 *Note: The original architecture diagram is in `model_perceptual.pdf`. Please convert it to an image format (e.g., PNG or JPG) and upload it to the repository to ensure proper display.*
 
 ## Installation
@@ -66,7 +66,7 @@ Ensure you have the following dependencies installed:
 1. **Clone the Repository**:
 
     ```bash
-    git clone https://github.com/liyuandagege/spectrogram_enhancer.git
+    git clone https://github.com/dagege/spectrogram_enhancer.git
     cd spectrogram_enhancer
     ```
 
@@ -85,7 +85,7 @@ The complete codebase will be released after the paper is officially published. 
 
 ## Contact
 
-If you have any questions or suggestions, feel free to reach out by [opening an issue](https://github.com/liyuandagege/spectrogram_enhancer/issues) on this repository.
+If you have any questions or suggestions, feel free to reach out by [opening an issue](https://github.com/dagege/spectrogram_enhancer/issues) on this repository.
 
 ## Acknowledgements
 
@@ -111,7 +111,7 @@ Please refer to the [CHANGELOG](CHANGELOG.md) for the latest updates and changes
 
 ## Community & Support
 
-Join our [Discussions](https://github.com/liyuandagege/spectrogram_enhancer/discussions) to interact with other users, ask questions, and share your experiences.
+Join our [Discussions](https://github.com/dagege/spectrogram_enhancer/discussions) to interact with other users, ask questions, and share your experiences.
 
 ---
 
