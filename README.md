@@ -97,7 +97,7 @@ We would also like to express our gratitude to the NVlabs team for their work on
 If you use this project in your research, please cite it as follows:
 
 ```bibtex
-@article{li2024zero,
+@article{2024zero,
   title={Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss},
   author={},
   journal={Under Review},
