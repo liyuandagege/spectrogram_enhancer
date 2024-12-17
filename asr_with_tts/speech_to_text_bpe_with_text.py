@@ -58,7 +58,7 @@ from nemo.utils import logging
 from nemo.utils.exp_manager import exp_manager
 
 # 
-@hydra_runner(config_path="/home/liyuan/SpeechRecognition/nemo/NeMo/examples/asr/conf/conformer", config_name="conformer_ctc_bpe")
+@hydra_runner(config_path="/home/***/SpeechRecognition/nemo/NeMo/examples/asr/conf/conformer", config_name="conformer_ctc_bpe")
 def main(cfg):
     """
     Training hybrid ASR-TTS model using text-only data and/or audio-text pairs.
