@@ -1,6 +1,6 @@
 # Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss
 
-Welcome to the **Zero-Shot Speech Recognition through Spectrogram Enhancement** GitHub repository. This project accompanies the paper titled *"Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss"* by ****, which is currently under review. A portion of the key code has been uploaded to this repository, with the complete code to be released upon the publication of the paper.
+Welcome to the **Zero-Shot Speech Recognition through Spectrogram Enhancement** GitHub repository. This project accompanies the paper titled **** by ****, which is currently under review. A portion of the key code has been uploaded to this repository, with the complete code to be released upon the publication of the paper.
 
 ## Table of Contents
 
@@ -35,9 +35,10 @@ This project focuses on **Zero-Shot Speech Recognition** by enhancing spectrogra
 
 The repository is organized to clearly separate different components of the project. Below is an overview of the key files related to the core functionalities:
 
+- **MOAA**:
+  - 'spec_moga.py'   Contains the implementation of the MOAA and DUPC technique used to refine spectrogram features.
 - **Style Truncation**:
   - `spectrogram_enhancer_clip_per_pix.py`: Contains the implementation of the style truncation technique used to refine spectrogram features.
-
 - **Contextual Alignment Loss**:
   - `spectrogram_enhancer_losses.py`: Implements the contextual alignment loss function that enhances model performance based on auditory perception.
 
