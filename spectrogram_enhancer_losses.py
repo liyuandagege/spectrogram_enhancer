@@ -99,17 +99,14 @@ class SpectrogramPerceptualLoss(nn.Module):
         self.vgg_layers = nn.ModuleList([vgg[i] for i in range(len(vgg))])
         if layers_weights is None:
             self.layers_weights = [0.0625, 0.125, 0.25, 0.5, 1.0]
-            # 示例权重，调整以匹配任务需要
             # self.layers_weights = [0.0625, 0.125, 0.25, 0.5, 1.0]
             # self.layers_weights = [0.1, 0.2, 0.3, 0.2, 0.2]
             # self.layers_weights = [0.1, 0.125, 0.25, 0.5, 1.0]
         else:
             self.layers_weights = layers_weights
     def forward(self, spect_predicted, spect_tgt):
-        # 确保输入的频谱图具有正确的范围和形状
         spect_predicted = spect_predicted.repeat(1, 3, 1, 1)  # (B, C, H, W)
         spect_tgt = spect_tgt.unsqueeze(1).repeat(1, 3, 1, 1)  # (B, C, H, W)
-        # 标准化频谱图以匹配 VGG19 的输入范围
         mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(spect_predicted.device)
         std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(spect_predicted.device)
         spect_predicted = (spect_predicted - mean) / std
@@ -121,9 +118,9 @@ class SpectrogramPerceptualLoss(nn.Module):
 
                 spect_tgt = self.vgg_layers[i](spect_tgt)
                 # print("spect_tgt after", spect_tgt.shape)
-                # spect_tgt = self.adjust_channels[i](spect_tgt)  # 调整通道数
+                # spect_tgt = self.adjust_channels[i](spect_tgt)  
             spect_predicted = self.vgg_layers[i](spect_predicted)
-            # spect_predicted = self.adjust_channels[i](spect_predicted)  # 调整通道数
+            # spect_predicted = self.adjust_channels[i](spect_predicted)  
             loss += weight * F.l1_loss(spect_predicted, spect_tgt)
 
         return loss * self.loss_scale
@@ -150,32 +147,24 @@ class SpeechLoss(nn.Module):
 
         enhanced_audio = (enhanced_audio - enhanced_audio.mean()) / enhanced_audio.std()
         target_audio = (target_audio - target_audio.mean()) / target_audio.std()
-        # 计算时间维度填充大小
         time_padding = self.kernel_size - (time % self.kernel_size)
         if time_padding == self.kernel_size:
             time_padding = 0
 
-        # 计算频率维度填充大小
         frequency_padding = self.kernel_size - (frequency % self.kernel_size)
         if frequency_padding == self.kernel_size:
             frequency_padding = 0
 
-        # 填充增强语音和目标语音
         enhanced_padded = F.pad(enhanced_audio, (0, time_padding, 0, frequency_padding))
         target_padded = F.pad(target_audio, (0, time_padding, 0, frequency_padding))
-
-        # 将填充后的增强语音和目标语音切分成小块
         unfolded_enhanced = enhanced_padded.unfold(2, self.kernel_size, self.stride).unfold(3, self.kernel_size, self.stride)
         unfolded_target = target_padded.unfold(2, self.kernel_size, self.stride).unfold(3, self.kernel_size, self.stride)
 
-        # 计算小块之间的相关性
         correlation = self.compute_correlation(unfolded_enhanced)
         correlation_target = self.compute_correlation(unfolded_target)
 
-        # 计算相关性损失
         correlation_loss = self.mse_loss(correlation, correlation_target)
 
-        # 综合损失
         loss = correlation_loss * 0.01
         #print(correlation_loss)
         return loss
@@ -219,14 +208,12 @@ class PercepContxLoss(nn.Module):
         self.vgg_layers = nn.ModuleList([vgg[i] for i in range(len(vgg))])
         if layers_weights is None:
             self.layers_weights = [0.0625, 0.125, 0.25, 0.5, 1.0]
-            # 示例权重，调整以匹配任务需要
+      
         else:
             self.layers_weights = layers_weights
     def forward(self, spect_predicted, spect_tgt):
-        # 确保输入的频谱图具有正确的范围和形状
         spect_predicted = spect_predicted.repeat(1, 3, 1, 1)  # (B, C, H, W)
         spect_tgt = spect_tgt.unsqueeze(1).repeat(1, 3, 1, 1)  # (B, C, H, W)
-        # 标准化频谱图以匹配 VGG19 的输入范围
         mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(spect_predicted.device)
         std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(spect_predicted.device)
         spect_predicted = (spect_predicted - mean) / std
