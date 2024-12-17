@@ -1,5 +1,5 @@
 # Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss
-
+# Enhancing Synthetic Spectrograms for Zero-Shot ASR: Multi-Order Adapt Aggregation and Correlation Networks
 Welcome to the **Zero-Shot Speech Recognition through Spectrogram Enhancement** GitHub repository. This project accompanies the paper titled **** by ****, which is currently under review. A portion of the key code has been uploaded to this repository, with the complete code to be released upon the publication of the paper.
 
 ## Table of Contents
