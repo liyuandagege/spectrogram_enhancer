@@ -521,10 +521,6 @@ class Generator(torch.nn.Module):
             self.initial_block.data.zero_()
 
     def add_scaled_condition(self, target: torch.Tensor, condition: torch.Tensor, condition_lengths: torch.Tensor):
-        # 函数目的总结
-        # 函数 `add_scaled_condition` 缩放条件张量以匹配目标张量的维度，将两个张量组合起来，
-        # 然后将掩码应用于结果。这通常用于您想要合并来自两个不同张量的信息（例如，在神经网络模型中）
-        # 同时考虑输入张量的长度或大小约束的场景。
         *_, target_height, _ = target.shape
         *_, height, _ = condition.shape
 
@@ -544,12 +540,6 @@ class Generator(torch.nn.Module):
         return 2 ** sum(1 for block in self.blocks if block.upsample)
 
     def forward(self, condition: torch.Tensor, lengths: torch.Tensor, ws: List[torch.Tensor], noise: torch.Tensor):
-        # condition 就是 input_spec， ws 
-        #  **`x`**：每层的中间特征图。
-        # - **`rgb`**：累积图像输出。
-        # - **`condition`**：条件输入缩放并添加到 `x` 和 `rgb`。
-        # - **`style`**：调节卷积层的样式向量。
-        # - **`noise`**：添加到中间特征图的随机噪声以引入变化。
         batch_size, _, _, max_length = condition.shape
         x = self.initial_block.expand(batch_size, -1, -1, max_length // self.upsample_factor)
 
