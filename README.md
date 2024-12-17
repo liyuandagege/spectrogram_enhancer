@@ -36,7 +36,7 @@ This project focuses on **Zero-Shot Speech Recognition** by enhancing spectrogra
 The repository is organized to clearly separate different components of the project. Below is an overview of the key files related to the core functionalities:
 
 - **MOAA**:
-  - 'spec_moga.py'   Contains the implementation of the MOAA and DUPC technique used to refine spectrogram features.
+  - spec_moga.py   Contains the implementation of the MOAA and DUPC technique used to refine spectrogram features.
 - **Style Truncation**:
   - `spectrogram_enhancer_clip_per_pix.py`: Contains the implementation of the style truncation technique used to refine spectrogram features.
 - **Contextual Alignment Loss**:
@@ -100,6 +100,13 @@ If you use this project in your research, please cite it as follows:
 ```bibtex
 @article{2024zero,
   title={Zero-Shot Speech Recognition through Spectrogram Enhancement Based on Style Truncation and Contextual Alignment Loss},
+  author={},
+  journal={Under Review},
+  year={2024}
+}
+
+@article{2024zero,
+  title={Enhancing Synthetic Spectrograms for Zero-Shot ASR: Multi-Order Adapt Aggregation and Correlation Networks},
   author={},
   journal={Under Review},
   year={2024}
